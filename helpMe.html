@@ -762,14 +762,14 @@ async function updateRemark(id, value){
     loadFromDB();
 }
 
-/* ========== 相机/录像功能 ========== */
+/* ========== 相机/录像功能（PC+移动 通用，黑白过滤仅移动端） ========== */
 async function openCamera(id, type) {
     currentRecordId = id;
     const cameraModal = document.getElementById('cameraModal');
     const captureBtn = document.getElementById('captureBtn');
     const recordBtn = document.getElementById('recordBtn');
-    
-    // 根据类型显示/隐藏按钮
+
+    /* 按钮显隐 */
     if (type === 'photo') {
         captureBtn.style.display = 'flex';
         recordBtn.style.display = 'none';
@@ -777,43 +777,58 @@ async function openCamera(id, type) {
         captureBtn.style.display = 'none';
         recordBtn.style.display = 'flex';
     }
-    
+
     try {
         cameraModal.style.display = 'flex';
         const video = document.getElementById('cameraVideo');
-        
-        // 获取摄像头访问权限
-        const constraints = {
-            video: { 
-                facingMode: currentCamera,
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
+
+        const isPC = !/Android|iPhone|iPad/i.test(navigator.userAgent);
+        let constraints = {
+            video: { width: { ideal: 1280 }, height: { ideal: 720 } },
             audio: type === 'video'
         };
-        
+
+        /* 1️⃣ PC：直接用 facingMode，避免二次授权问题 */
+        if (isPC) {
+            constraints.video.facingMode = currentCamera;
+        }
+        /* 2️⃣ 移动端：过滤黑白后置 */
+        else {
+            const tmp = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: currentCamera }, audio: false
+            });
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            tmp.getTracks().forEach(t => t.stop());
+
+            const blacklist = ['camera 2 3'];
+            const back = devices.find(d =>
+                d.kind === 'videoinput' &&
+                (d.label || '').toLowerCase().includes('back') &&
+                !blacklist.some(b => (d.label || '').toLowerCase().includes(b))
+            );
+            if (back) {
+                constraints.video.deviceId = { exact: back.deviceId };
+                delete constraints.video.facingMode;
+            } else {
+                constraints.video.facingMode = currentCamera;
+            }
+        }
+
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = mediaStream;
-        
-        // 添加错误处理
-        video.onerror = () => {
-            throw new Error('视频播放失败');
-        };
-        
+        video.onerror = () => { throw new Error('视频播放失败'); };
+
     } catch (error) {
         console.error('无法访问摄像头:', error);
-        
-        // 更详细的错误提示
-        let errorMsg = '无法访问摄像头，请检查权限设置';
+        let msg = '无法访问摄像头，请检查权限设置';
         if (error.name === 'NotAllowedError') {
-            errorMsg = '摄像头权限被拒绝，请在浏览器设置中允许访问摄像头';
+            msg = '摄像头权限被拒绝，请在浏览器设置中允许访问摄像头';
         } else if (error.name === 'NotFoundError') {
-            errorMsg = '未找到摄像头设备，请检查设备连接';
+            msg = '未找到摄像头设备，请检查设备连接';
         } else if (error.name === 'NotReadableError') {
-            errorMsg = '摄像头被其他应用占用，请关闭其他应用后重试';
+            msg = '摄像头被其他应用占用，请关闭其他应用后重试';
         }
-        
-        alert(errorMsg);
+        alert(msg);
         hideModal('cameraModal');
     }
 }
