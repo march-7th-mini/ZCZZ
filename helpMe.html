@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+    <title>移动端现场排查助手</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+
+    
+        :root{
+            --primary:#3498db;
+            --secondary:#2ecc71;
+            --accent:#e74c3c;
+            --light:#f8f9fa;
+            --dark:#2c3e50;
+            --gray:#7f8c8d;
+            --border:#ddd;
+            --unmarked:#95a5a6;
+        }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{
+            font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+            background:#f5f7fa;
+            color:var(--dark);
+            line-height:1.5;
+        }
+        /* ======= 720P 适配开始 ======= */
+        .container{
+            max-width:100%;
+            padding:8px;
+        }
+        .sheet-name{
+            font-size:.7rem;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            max-width:80px;
+        }
+        .btn{
+            font-size:.85rem;
+            padding:10px 12px;
+        }
+        /* ======= 720P 适配结束 ======= */
+
+        /* 其余样式与原文件一致，仅在数值上微调 */
+        .header{
+            background:linear-gradient(135deg,var(--primary),#2980b9);
+            color:#fff;
+            padding:20px 15px;
+            margin:-8px -8px 15px -8px;
+            box-shadow:0 4px 12px rgba(0,0,0,.1);
+            border-radius:0 0 20px 20px;
+            position: relative;
+        }
+        .header h1{font-size:1.4rem;font-weight:600;display:flex;align-items:center;gap:8px}
+        .header p{font-size:.8rem;opacity:.9;margin-top:3px}
+        .import-icon {
+            position: absolute;
+            top: 20px;
+            right: 15px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 10px;
+            z-index: 10;
+        }
+        .card{background:#fff;border-radius:12px;padding:15px;margin-bottom:15px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+        .card-title{font-size:1rem;font-weight:600;margin-bottom:12px;color:var(--primary);display:flex;align-items:center;gap:6px}
+        .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:none;border-radius:8px;font-weight:500;cursor:pointer;transition:all .2s;margin:4px 0;width:100%;background:var(--primary);color:#fff}
+        .btn:hover{opacity:.9;transform:translateY(-1px)}
+        .btn-secondary{background:var(--secondary)}
+        .btn-accent{background:var(--accent)}
+        .btn-outline{background:transparent;border:1px solid var(--primary);color:var(--primary)}
+        .search-box{width:100%;padding:12px 14px;margin-bottom:12px;border:1px solid var(--border);border-radius:10px;font-size:.95rem;background:#fff}
+        .filters{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+        .filter-btn{padding:6px 12px;border-radius:20px;border:1px solid var(--border);background:#fff;font-size:.8rem;white-space:nowrap}
+        .filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+        .items-container{display:flex;flex-direction:column;gap:12px}
+        .item{background:#fff;border-radius:12px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.05);position:relative;}
+        .item-index {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: var(--primary);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .item-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;padding-left: 28px;}
+        .device-name{
+            font-weight:bold;
+            font-size:1rem;
+            color:var(--dark);
+            max-width: 235px;
+            word-wrap: break-word;
+            line-height: 1.3;
+        }
+        .workshop-name {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin-top: 2px;
+            white-space: nowrap;
+        }
+        .item-detail{margin-bottom:4px;font-size:.9rem}
+        .status-badge{display:inline-block;padding:3px 8px;border-radius:12px;font-size:.75rem;margin-top:6px}
+        .status-normal{background:#e8f6f3;color:var(--secondary)}
+        .status-abnormal{background:#fdecea;color:var(--accent)}
+        .status-unsolved{background:#fef5e7;color:#f39c12}
+        .status-unmarked{background:#f0f3f5;color:var(--unmarked)}
+        .media-attachments{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+        .attachment{position:relative;width:70px;height:70px;border-radius:6px;overflow:hidden;cursor:pointer;}
+        .attachment img,.attachment video{width:100%;height:100%;object-fit:cover}
+        .remove-attachment{position:absolute;top:3px;right:3px;background:rgba(255,255,255,.8);border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.7rem;cursor:pointer}
+        .empty-state{text-align:center;padding:30px 15px;color:var(--gray)}
+        .empty-state i{font-size:2.5rem;margin-bottom:12px;color:#bdc3c7}
+        .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:15px}
+        .stat-card{
+            background:#fff;
+            border-radius:12px;
+            padding:8px 4px;
+            text-align:center;
+            box-shadow:0 2px 8px rgba(0,0,0,.05);
+            font-size:.7rem;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .stat-value{font-size:1.2rem;font-weight:700;margin:4px 0}
+        .stat-normal{color:var(--secondary)}.stat-abnormal{color:var(--accent)}.stat-unsolved{color:#f39c12}.stat-unmarked{color:var(--unmarked)}
+        .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+        .modal-content{background:#fff;border-radius:12px;padding:20px;width:90%;max-width:320px;text-align:center}
+        .modal-lg {
+            max-width: 90%;
+            width: 90%;
+        }
+        .control-group {
+            margin-bottom: 12px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.9rem;
+        }
+        .control-group select, .control-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        .preview-modal {
+            background: rgba(0,0,0,0.9);
+        }
+        .preview-content {
+            max-width: 100%;
+            max-height: 80vh;
+            background: black;
+        }
+        .preview-content img, .preview-content video {
+            max-width: 100%;
+            max-height: 80vh;
+            object-fit: contain;
+        }
+        .preview-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .camera-modal {
+            background: black;
+        }
+        .camera-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .camera-video {
+            width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+        }
+        .camera-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .camera-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .camera-close {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        .camera-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        /* 状态选择器样式 */
+        .status-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        /* 测点信息样式 */
+        .point-info {
+            font-size: 0.8rem;
+            color: var(--gray);
+            margin: 4px 0;
+            line-height: 1.4;
+        }
+        
+        /* 错误提示样式 */
+        .error-message {
+            color: var(--accent);
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+        
+        @media(min-width:768px){.container{max-width:750px;margin:0 auto}.btn{width:auto}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-clipboard-list"></i> 移动端现场排查助手</h1>
+        <p>便捷记录现场问题，支持多照片/视频上传</p>
+        <div class="import-icon" id="importButton">
+            <i class="fas fa-file-import"></i>
+        </div>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div>正常</div>
+            <div class="stat-value stat-normal" id="count-normal">0</div>
+            <div>问题</div>
+        </div>
+        <div class="stat-card">
+            <div>异常</div>
+            <div class="stat-value stat-abnormal" id="count-abnormal">0</div>
+            <div>问题</div>
+        </div>
+        <div class="stat-card">
+            <div>未解决</div>
+            <div class="stat-value stat-unsolved" id="count-unsolved">0</div>
+            <div>问题</div>
+        </div>
+        <div class="stat-card">
+            <div>未标记</div>
+            <div class="stat-value stat-unmarked" id="count-unmarked">0</div>
+            <div>问题</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title"><i class="fas fa-search"></i> 搜索与筛选</div>
+        <input type="search" class="search-box" id="searchBox" placeholder="输入关键词搜索...">
+        <div class="filters">
+            <button class="filter-btn active" data-status="">全部</button>
+            <button class="filter-btn" data-status="正常">正常</button>
+            <button class="filter-btn" data-status="异常">异常</button>
+            <button class="filter-btn" data-status="未解决">未解决</button>
+            <button class="filter-btn" data-status="未标记">未标记</button>
+            <button class="filter-btn" data-status="有附件">有附件</button>
+        </div>
+        <div class="control-group">
+            <label for="workshopFilter">车间筛选:</label>
+            <select id="workshopFilter">
+                <option value="">全部车间</option>
+                <!-- 动态填充 -->
+            </select>
+        </div>
+    </div>
+
+    <div id="list" class="items-container">
+        <div class="empty-state">
+            <i class="fas fa-inbox"></i>
+            <p>暂无排查记录</p>
+            <p>请导入Excel文件或开始添加记录</p>
+        </div>
+    </div>
+</div>
+
+<!-- 数据导入弹窗 -->
+<div class="modal" id="importModal">
+    <div class="modal-content modal-lg">
+        <h3><i class="fas fa-file-import"></i> 数据导入</h3>
+        <div class="actions" style="display:flex;flex-direction:column;gap:10px;margin-top:15px">
+            <button class="btn" id="excelImportBtn">
+                <i class="fas fa-file-excel"></i> 导入Excel
+            </button>
+            <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+            <button class="btn btn-secondary" id="jsonImportBtn">
+                <i class="fas fa-database"></i> 导入数据库
+            </button>
+            <input type="file" id="jsonInput" accept=".json" style="display:none">
+            <button class="btn btn-secondary" id="exportBtn">
+                <i class="fas fa-download"></i> 导出数据库
+            </button>
+            <button class="btn btn-accent" id="clearBtn">
+                <i class="fas fa-trash"></i> 清空记录
+            </button>
+            <button class="btn btn-outline" style="margin-top:10px" id="cancelImportBtn">
+                取消
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 清空确认弹窗 -->
+<div class="modal" id="clearModal">
+    <div class="modal-content">
+        <h3>确认清空</h3>
+        <p>确定要清空所有记录吗？此操作不可恢复。</p>
+        <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn btn-accent" style="flex:1" id="confirmClearBtn">确认清空</button>
+            <button class="btn btn-outline" style="flex:1" id="cancelClearBtn">取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 附件预览弹窗 -->
+<div class="modal preview-modal" id="previewModal">
+    <div class="preview-close" id="closePreviewBtn">
+        <i class="fas fa-times"></i>
+    </div>
+    <div class="modal-content preview-content" id="previewContent">
+        <!-- 预览内容 -->
+    </div>
+</div>
+
+<!-- 相机弹窗 -->
+<div class="modal camera-modal" id="cameraModal">
+    <div class="camera-close" id="closeCameraBtn">
+        <i class="fas fa-times"></i>
+    </div>
+    <div class="camera-switch" id="switchCameraBtn">
+        <i class="fas fa-camera-rotate"></i>
+    </div>
+    <div class="camera-container">
+        <video class="camera-video" id="cameraVideo" autoplay playsinline></video>
+        <div class="camera-controls">
+            <div class="camera-btn" id="captureBtn">
+                <i class="fas fa-camera"></i>
+            </div>
+            <div class="camera-btn" id="recordBtn">
+                <i class="fas fa-video"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+// 修复右上角导入按钮功能
+document.addEventListener('DOMContentLoaded', function() {
+    // 确保所有DOM元素已经加载完成
+    
+    // 给导入按钮添加事件监听
+    document.getElementById('importButton').addEventListener('click', showImportModal);
+    
+    // 其他事件监听器
+    document.getElementById('excelImportBtn').addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+    });
+    
+    document.getElementById('jsonImportBtn').addEventListener('click', function() {
+        document.getElementById('jsonInput').click();
+    });
+    
+    document.getElementById('exportBtn').addEventListener('click', exportDB);
+    document.getElementById('clearBtn').addEventListener('click', showClearConfirm);
+    document.getElementById('cancelImportBtn').addEventListener('click', function() {
+        hideModal('importModal');
+    });
+    
+    document.getElementById('confirmClearBtn').addEventListener('click', clearAll);
+    document.getElementById('cancelClearBtn').addEventListener('click', function() {
+        hideModal('clearModal');
+    });
+    
+    document.getElementById('closePreviewBtn').addEventListener('click', function() {
+        hideModal('previewModal');
+    });
+    
+    document.getElementById('closeCameraBtn').addEventListener('click', function() {
+        stopCamera();
+        hideModal('cameraModal');
+    });
+    
+    document.getElementById('switchCameraBtn').addEventListener('click', switchCamera);
+    document.getElementById('captureBtn').addEventListener('click', capturePhoto);
+    document.getElementById('recordBtn').addEventListener('click', toggleRecording);
+    
+    // 搜索和筛选功能
+    document.getElementById('searchBox').addEventListener('input', function() {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadFromDB, 300);
+    });
+    
+    document.querySelectorAll('.filter-btn').forEach(b => {
+        b.addEventListener('click', function() {
+            document.querySelectorAll('.filter-btn').forEach(x => x.classList.remove('active'));
+            this.classList.add('active');
+            currentFilter = this.dataset.status;
+            loadFromDB();
+        });
+    });
+    
+    document.getElementById('workshopFilter').addEventListener('change', loadFromDB);
+    
+    // 文件输入监听
+    document.getElementById('fileInput').addEventListener('change', importExcel);
+    document.getElementById('jsonInput').addEventListener('change', importJSON);
+    
+    // 初始化数据库
+    initDB();
+});
+
+/* ================ IndexedDB 封装 ================ */
+const DB_NAME='FieldCheck',STORE='records',VER=3;
+let db;
+
+function initDB() {
+    const req=indexedDB.open(DB_NAME,VER);
+    req.onupgradeneeded=e=>{
+        const d=e.target.result;
+        if(!d.objectStoreNames.contains(STORE)){
+            const s=d.createObjectStore(STORE,{keyPath:'id'});
+            s.createIndex('device','device',{unique:false});
+            s.createIndex('point','point',{unique:false});
+            s.createIndex('note','note',{unique:false});
+            s.createIndex('workshop','workshop',{unique:false});
+        }
+    };
+    req.onsuccess=e=>{db=e.target.result;loadFromDB()};
+    req.onerror=()=>alert('数据库打开失败');
+}
+
+function dbTx(m='readonly'){return db.transaction(STORE,m).objectStore(STORE)}
+async function addRec(rec){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite'),s=tx.objectStore(STORE),r=s.put(rec);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function delRec(id){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite'),s=tx.objectStore(STORE),r=s.delete(id);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function getAll(){return new Promise((res,rej)=>{const s=dbTx(),r=s.getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+
+/* ================ 业务逻辑 ================ */
+let visibleData=[],currentFilter='',currentRecordId=null;
+let mediaStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+let currentCamera = 'environment'; // 默认后置摄像头
+
+function showImportModal() {
+    document.getElementById('importModal').style.display = 'flex';
+}
+
+function hideModal(id){
+    document.getElementById(id).style.display = 'none';
+}
+
+function showClearConfirm(){
+    document.getElementById('clearModal').style.display = 'flex';
+}
+
+// 在importExcel函数中，修改数据映射部分
+async function importExcel(){
+    const file=document.getElementById('fileInput').files[0];
+    if(!file) return;
+    
+    try{
+        const buf=await file.arrayBuffer();
+        const wb=XLSX.read(buf,{type:'array',cellDates:true});
+        const rows=[];
+        
+        wb.SheetNames.forEach(sn=>{
+            const ws=wb.Sheets[sn];
+            XLSX.utils.sheet_to_json(ws,{header:1}).slice(1).forEach((r,i)=>{
+                // 修复字段映射
+                const workshop = sn; // 使用sheet名作为车间名称
+                const device = (r[2] || '').toString().trim(); // 采集设备名 -> 小卡片标题
+                const point = (r[3] || '').toString().trim(); // 测点数据名称 -> 测点
+                const note = (r[4] || '').toString().trim(); // 备注 -> 问题描述
+                const pointNumber = (r[1] || '').toString().trim(); // 测点数据编号 -> 测点编号
+                
+                if(!point || !note || point === '测点数据名称') return;
+                
+                rows.push({
+                    id: `${sn}_${i+1}_${Date.now()}`,
+                    sheet: sn,
+                    workshop: workshop, // 使用sheet名作为车间
+                    device: device, // 采集设备名
+                    point: point, // 测点数据名称
+                    note: note, // 备注
+                    status: '',
+                    remark: '',
+                    attachments: [],
+                    pointNumber: pointNumber, // 测点数据编号
+                    sensorType: (r[5] || '').toString().trim(), // 传感器类型
+                    dataCollectorIP: (r[7] || '').toString().trim() // 采集器IP地址
+                });
+            });
+        });
+        
+        for(const rec of rows) await addRec(rec);
+        loadFromDB();
+        alert(`成功导入 ${rows.length} 条记录`);
+        hideModal('importModal');
+    }catch(e){
+        console.error(e);
+        alert('文件导入失败，请检查格式');
+    }
+}
+
+async function importJSON() {
+    const file = document.getElementById('jsonInput').files[0];
+    if (!file) return;
+    
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (Array.isArray(data)) {
+            for (const rec of data) {
+                await addRec(rec);
+            }
+            loadFromDB();
+            alert(`成功导入 ${data.length} 条记录`);
+            hideModal('importModal');
+        } else {
+            alert('JSON文件格式不正确');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('JSON文件导入失败');
+    }
+}
+
+async function loadFromDB(){
+    const kw=document.getElementById('searchBox').value.trim().toLowerCase();
+    const workshopFilter = document.getElementById('workshopFilter').value;
+    const all=await getAll();
+    updateStats(all);
+    updateWorkshopFilter(all);
+    
+    visibleData=all.filter(r=>{
+        const match=!kw||
+            (r.device && r.device.toLowerCase().includes(kw))||
+            (r.point && r.point.toLowerCase().includes(kw))||
+            (r.note && r.note.toLowerCase().includes(kw))||
+            (r.remark && r.remark.toLowerCase().includes(kw))||
+            (r.workshop && r.workshop.toLowerCase().includes(kw));
+        
+        let statusMatch = true;
+        if (currentFilter) {
+            if (currentFilter === '有附件') {
+                statusMatch = r.attachments && r.attachments.length > 0;
+            } else if (currentFilter === '未标记') {
+                statusMatch = !r.status || r.status === '';
+            } else {
+                statusMatch = r.status === currentFilter;
+            }
+        }
+        
+        const workshopMatch = !workshopFilter || r.workshop === workshopFilter;
+        
+        return match && statusMatch && workshopMatch;
+    });
+    render();
+}
+
+function updateStats(d){
+    const n=d.filter(r=>r.status==='正常').length;
+    const a=d.filter(r=>r.status==='异常').length;
+    const u=d.filter(r=>r.status==='未解决').length;
+    const um=d.filter(r=>!r.status || r.status==='').length;
+    
+    document.getElementById('count-normal').textContent = n;
+    document.getElementById('count-abnormal').textContent = a;
+    document.getElementById('count-unsolved').textContent = u;
+    document.getElementById('count-unmarked').textContent = um;
+}
+
+function updateWorkshopFilter(data) {
+    const workshopFilter = document.getElementById('workshopFilter');
+    const workshops = new Set();
+    
+    data.forEach(item => {
+        if (item.workshop) {
+            workshops.add(item.workshop);
+        }
+    });
+    
+    // 保存当前选中的值
+    const currentValue = workshopFilter.value;
+    
+    // 清除现有选项（保留"全部车间"）
+    while (workshopFilter.options.length > 1) {
+        workshopFilter.remove(1);
+    }
+    
+    // 添加车间选项
+    workshops.forEach(workshop => {
+        const option = document.createElement('option');
+        option.value = workshop;
+        option.textContent = workshop;
+        workshopFilter.appendChild(option);
+    });
+    
+    // 恢复选中的值
+    workshopFilter.value = currentValue;
+}
+
+function render(){
+    const list=document.getElementById('list');
+    if(!visibleData.length){list.innerHTML='<div class="empty-state"><i class="fas fa-search"></i><p>未找到相关记录</p></div>';return;}
+    list.innerHTML='';
+    visibleData.forEach((r, index)=>{
+        const div=document.createElement('div');div.className='item';
+        let badge='',attach='';
+        
+        // 序号
+        const itemIndex = index + 1;
+        
+        // 状态徽章
+        if(r.status){
+            let cls='';
+            if(r.status==='正常')cls='status-normal';
+            else if(r.status==='异常')cls='status-abnormal';
+            else if(r.status==='未解决')cls='status-unsolved';
+            else if(r.status==='未标记')cls='status-unmarked';
+            badge=`<div class="status-badge ${cls}">${r.status}</div>`;
+        } else {
+            badge=`<div class="status-badge status-unmarked">未标记</div>`;
+        }
+        
+        // 附件
+        if(r.attachments&&r.attachments.length){
+            attach='<div class="media-attachments">';
+            r.attachments.forEach((att,i)=>{
+                const img=att.fileType.startsWith('image/');
+                attach+=`<div class="attachment" onclick="previewAttachment('${r.id}',${i})">
+                    ${img?`<img src="${att.file}">`:`<video src="${att.file}"></video>`}
+                    <div class="remove-attachment" onclick="event.stopPropagation();removeAttachment('${r.id}',${i})">
+                        <i class="fas fa-times"></i>
+                    </div>
+                </div>`;
+            });
+            attach+='</div>';
+        }
+        
+		// 在render函数中，修改div.innerHTML部分
+		div.innerHTML=`
+		    <div class="item-index">${itemIndex}</div>
+		    <div class="item-header">
+		        <div>
+		            <div class="device-name">${r.device || '未命名设备'}</div>
+		            <!-- 删除workshop-name行 -->
+		        </div>
+		        <!-- 在卡片右上角的车间信息处添加背景 -->
+			<div class="sheet-name" style="background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem;">
+			    ${r.sheet}
+			</div>
+		    </div>
+		    
+		    <div class="item-details">
+		        <div class="item-detail"><strong>测点：</strong>${r.point}</div>
+		        <div class="point-info"><strong>测点编号：</strong>${r.pointNumber || '无'}</div>
+		        <div class="point-info"><strong>传感器类型：</strong>${r.sensorType || '无'}</div>
+		        <div class="point-info"><strong>数采IP：</strong>${r.dataCollectorIP || '无'}</div>
+		        <div class="item-detail"><strong>问题描述：</strong>${r.note}</div>
+		        ${r.remark ? `<div class="item-detail"><strong>处理备注：</strong>${r.remark}</div>` : ''}
+		        
+		        <div class="status-selector">
+		            <label><strong>状态：</strong></label>
+		            <select onchange="updateStatus('${r.id}', this.value)">
+		                <option value="">请选择</option>
+		                <option value="正常" ${r.status==='正常'?'selected':''}>正常</option>
+		                <option value="异常" ${r.status==='异常'?'selected':''}>异常</option>
+		                <option value="未解决" ${r.status==='未解决'?'selected':''}>未解决</option>
+		                <option value="未标记" ${r.status==='未标记'||!r.status?'selected':''}>未标记</option>
+		            </select>
+		        </div>
+		        
+			<!-- 处理备注独占一行，使用多行文本域 -->
+			<div style="margin-bottom: 12px;">
+			    <strong style="display: block; margin-bottom: 4px;">处理备注：</strong>
+			    <textarea 
+			        onchange="updateRemark('${r.id}', this.value)"
+			        style="width: 100%; padding: 6px 8px; font-size: 0.9rem; min-height: 80px; resize: vertical; border: 1px solid var(--border); border-radius: 6px;"
+			        placeholder="输入处理情况备注">${r.remark||''}</textarea>
+			</div>
+		        
+		        <button class="btn" onclick="openCamera('${r.id}', 'photo')">
+		            <i class="fas fa-camera"></i> 拍照
+		        </button>
+		        <button class="btn btn-secondary" onclick="openCamera('${r.id}', 'video')">
+		            <i class="fas fa-video"></i> 录像
+		        </button>
+		        ${attach}
+		    </div>
+		`;		
+        list.appendChild(div);
+    });
+}
+
+async function updateStatus(id, value){
+    const a=await getAll(),r=a.find(e=>e.id===id);
+    if(!r) return;
+    r.status = value;
+    await addRec(r);
+    loadFromDB();
+}
+
+async function updateRemark(id, value){
+    const a=await getAll(),r=a.find(e=>e.id===id);
+    if(!r) return;
+    r.remark = value;
+    await addRec(r);
+    loadFromDB();
+}
+
+/* ========== 相机/录像功能 ========== */
+async function openCamera(id, type) {
+    currentRecordId = id;
+    const cameraModal = document.getElementById('cameraModal');
+    const captureBtn = document.getElementById('captureBtn');
+    const recordBtn = document.getElementById('recordBtn');
+    
+    // 根据类型显示/隐藏按钮
+    if (type === 'photo') {
+        captureBtn.style.display = 'flex';
+        recordBtn.style.display = 'none';
+    } else {
+        captureBtn.style.display = 'none';
+        recordBtn.style.display = 'flex';
+    }
+    
+    try {
+        cameraModal.style.display = 'flex';
+        const video = document.getElementById('cameraVideo');
+        
+        // 获取摄像头访问权限
+        const constraints = {
+            video: { 
+                facingMode: currentCamera,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: type === 'video'
+        };
+        
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = mediaStream;
+        
+        // 添加错误处理
+        video.onerror = () => {
+            throw new Error('视频播放失败');
+        };
+        
+    } catch (error) {
+        console.error('无法访问摄像头:', error);
+        
+        // 更详细的错误提示
+        let errorMsg = '无法访问摄像头，请检查权限设置';
+        if (error.name === 'NotAllowedError') {
+            errorMsg = '摄像头权限被拒绝，请在浏览器设置中允许访问摄像头';
+        } else if (error.name === 'NotFoundError') {
+            errorMsg = '未找到摄像头设备，请检查设备连接';
+        } else if (error.name === 'NotReadableError') {
+            errorMsg = '摄像头被其他应用占用，请关闭其他应用后重试';
+        }
+        
+        alert(errorMsg);
+        hideModal('cameraModal');
+    }
+}
+
+function stopCamera() {
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+    }
+    
+    if (mediaRecorder && isRecording) {
+        mediaRecorder.stop();
+        mediaRecorder = null;
+        isRecording = false;
+    }
+}
+
+function switchCamera() {
+    currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+    stopCamera();
+    openCamera(currentRecordId, 
+        document.getElementById('recordBtn').style.display === 'none' ? 'photo' : 'video'
+    );
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    canvas.toBlob(async (blob) => {
+        await saveMedia(blob, 'image/jpeg', 'photo.jpg');
+        stopCamera();
+        hideModal('cameraModal');
+    }, 'image/jpeg', 0.8);
+}
+
+function toggleRecording() {
+    if (isRecording) {
+        // 停止录制
+        mediaRecorder.stop();
+        isRecording = false;
+        document.getElementById('recordBtn').innerHTML = '<i class="fas fa-video"></i>';
+    } else {
+        // 开始录制
+        recordedChunks = [];
+        const video = document.getElementById('cameraVideo');
+        
+        try {
+            mediaRecorder = new MediaRecorder(mediaStream, {
+                mimeType: 'video/webm;codecs=vp9,opus'
+            });
+            
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    recordedChunks.push(e.data);
+                }
+            };
+            
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                await saveMedia(blob, 'video/webm', 'recording.webm');
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            document.getElementById('recordBtn').innerHTML = '<i class="fas fa-stop"></i>';
+        } catch (e) {
+            console.error('MediaRecorder创建失败:', e);
+            alert('您的浏览器不支持视频录制功能');
+        }
+    }
+}
+
+async function saveMedia(blob, type, filename) {
+    const a = await getAll();
+    const r = a.find(e => e.id === currentRecordId);
+    if (!r) return;
+    
+    if (!r.attachments) r.attachments = [];
+    
+    const url = URL.createObjectURL(blob);
+    r.attachments.push({
+        file: url,
+        fileName: filename,
+        fileType: type,
+        blob: blob
+    });
+    
+    await addRec(r);
+    loadFromDB();
+}
+
+/* ========== 附件预览 ========== */
+function previewAttachment(recordId, attachmentIndex) {
+    const previewModal = document.getElementById('previewModal');
+    const previewContent = document.getElementById('previewContent');
+    
+    getAll().then(data => {
+        const record = data.find(r => r.id === recordId);
+        if (!record || !record.attachments || attachmentIndex >= record.attachments.length) return;
+        
+        const attachment = record.attachments[attachmentIndex];
+        const isImage = attachment.fileType.startsWith('image/');
+        
+        if (isImage) {
+            previewContent.innerHTML = `<img src="${attachment.file}" alt="附件预览">`;
+        } else {
+            previewContent.innerHTML = `<video src="${attachment.file}" controls autoplay></video>`;
+        }
+        
+        previewModal.style.display = 'flex';
+    });
+}
+
+async function removeAttachment(id,idx){
+    const a=await getAll(),r=a.find(e=>e.id===id);
+    if(!r||!r.attachments||idx>=r.attachments.length)return;
+    
+    // 释放URL对象
+    if (r.attachments[idx].file.startsWith('blob:')) {
+        URL.revokeObjectURL(r.attachments[idx].file);
+    }
+    
+    r.attachments.splice(idx,1);
+    await addRec(r);
+    loadFromDB();
+}
+
+function exportDB(){
+    getAll().then(d=>{
+        const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(blob);
+        a.download=`field_check_${new Date().toISOString().slice(0,10)}_${String(new Date().getHours()).padStart(2,'0')}${String(new Date().getMinutes()).padStart(2,'0')}.json`;
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+    });
+}
+
+async function clearAll(){
+    const tx=db.transaction(STORE,'readwrite'),s=tx.objectStore(STORE);
+    s.clear();
+    tx.oncomplete=()=>{
+        loadFromDB();
+        hideModal('clearModal');
+        alert('已清空所有记录');
+    };
+}
+
+let searchTimer;
+</script>
+</body>
+</html>
